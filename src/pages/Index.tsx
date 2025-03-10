@@ -11,19 +11,16 @@ const Index = () => {
   const [latestDate, setLatestDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Google Sheets configuration
   const sheetId = "1Rf7EGqVDLHieTWQC4iqnSox1wEUZtLAqvXm6b5g4tMg";
   const lineupSheetName = "Lineup Songs";
   const workersSheetName = "Workers";
   const apiKey = "AIzaSyA3G6VhZdf_0heYvIQr84u8HCerrrvsFUo";
   const pdfSrc = "https://drive.google.com/file/d/1V671ZKsWTom_5BxeEk7TFIKQKW9_WvKA/preview";
 
-  // Handle scroll events
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
       
-      // Update active section based on scroll position
       const sections = document.querySelectorAll('section[id]');
       let currentSection = 'home';
       
@@ -41,7 +38,6 @@ const Index = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Fetch data from Google Sheets
   useEffect(() => {
     const fetchSheetData = async () => {
       setIsLoading(true);
@@ -64,7 +60,6 @@ const Index = () => {
         const workersData1 = await workersResponse1.json();
         const workersData2 = await workersResponse2.json();
 
-        // Find latest date from lineup data
         let latest = '';
         if (lineupData.values && lineupData.values.length > 1) {
           for (let i = 1; i < lineupData.values.length; i++) {
@@ -88,7 +83,6 @@ const Index = () => {
     fetchSheetData();
   }, []);
 
-  // Update PDF viewer
   useEffect(() => {
     const pdfViewer = document.getElementById("pdfViewer");
     if (pdfViewer instanceof HTMLIFrameElement) {
@@ -96,7 +90,6 @@ const Index = () => {
     }
   }, []);
 
-  // Navigation items
   const navItems = [
     { id: 'home', label: 'Home', icon: <Home size={18} /> },
     { id: 'songs', label: 'Songs', icon: <Music size={18} /> },
@@ -104,7 +97,6 @@ const Index = () => {
     { id: 'resources', label: 'Resources', icon: <FileText size={18} /> }
   ];
 
-  // Scroll to section
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -113,7 +105,6 @@ const Index = () => {
     }
   };
 
-  // Render lineup card
   const renderLineupCard = (song, index) => {
     if (!song || song.length < 3) return null;
     
@@ -139,9 +130,7 @@ const Index = () => {
     );
   };
 
-  // Render latest lineup table - UPDATED to show all rows with the latest date
   const renderLatestLineupTable = () => {
-    // Filter songs for the latest date - we want to show all of them
     const latestSongs = lineupData.filter(row => row && row[0] === latestDate);
     
     if (isLoading) {
@@ -200,7 +189,6 @@ const Index = () => {
     );
   };
 
-  // Render worker table rows
   const renderWorkerRows = (data) => {
     if (!data || data.length < 2) return null;
     
@@ -219,7 +207,6 @@ const Index = () => {
     });
   };
 
-  // Get team names from sheet data
   const getTeamName = (data, defaultName) => {
     if (data && data.length > 0 && data[0] && data[0][0]) {
       return data[0][0];
@@ -232,11 +219,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
-      {/* Navigation */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-md py-2' : 'bg-transparent py-4'}`}>
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex justify-between items-center">
-            {/* Logo */}
             <a href="#" className="flex items-center space-x-2" onClick={() => scrollToSection('home')}>
               <img 
                 src="/lovable-uploads/11ec3d18-cf25-4232-b280-5199f06af73b.png" 
@@ -248,7 +233,6 @@ const Index = () => {
               </div>
             </a>
 
-            {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6">
               {navItems.map(item => (
                 <button
@@ -262,7 +246,6 @@ const Index = () => {
               ))}
             </div>
 
-            {/* Mobile Menu Button */}
             <button 
               className="md:hidden text-gray-700 hover:text-goodtree"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -273,7 +256,6 @@ const Index = () => {
         </div>
       </nav>
 
-      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 bg-white pt-20 pb-6 px-4 md:hidden slide-in">
           <div className="flex flex-col space-y-4">
@@ -293,7 +275,6 @@ const Index = () => {
       )}
 
       <main className="pt-20">
-        {/* Hero Section */}
         <section id="home" className="py-12 md:py-20">
           <div className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col md:flex-row items-center">
@@ -335,7 +316,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Latest Lineup Section */}
         <section className="py-12 bg-gray-50">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-8 fade-up">
@@ -350,7 +330,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Songs Section */}
         <section id="songs" className="py-12 md:py-16">
           <div className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col md:flex-row items-start">
@@ -410,7 +389,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Team Section */}
         <section id="team" className="py-12 md:py-16 bg-gray-50">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-10 fade-up">
@@ -500,7 +478,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Resources Section */}
         <section id="resources" className="py-12 md:py-16">
           <div className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col md:flex-row items-start">
@@ -539,7 +516,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Footer */}
         <footer className="py-8 bg-goodtree text-white">
           <div className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col md:flex-row justify-between items-center">
