@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Menu, X, ChevronDown, ChevronRight, Music, Users, FileText, Home } from "lucide-react";
+import { Menu, X, ChevronDown, ChevronRight, Music, Users, FileText, Home, ExternalLink } from "lucide-react";
 
 const Index = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -140,33 +140,66 @@ const Index = () => {
     );
   };
 
-  // Render latest lineup card
-  const renderLatestLineupCard = (song, index) => {
-    if (!song || song.length < 3) return null;
+  // Render latest lineup table
+  const renderLatestLineupTable = () => {
+    // Filter songs for the latest date
+    const latestSongs = lineupData.filter(row => row && row[0] === latestDate);
     
-    const [date, songTitle, artist, keyInfo] = song;
+    if (isLoading) {
+      return (
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded mb-4"></div>
+          <div className="h-64 bg-gray-100 rounded"></div>
+        </div>
+      );
+    }
+    
+    if (latestSongs.length === 0) {
+      return <div className="text-center text-gray-500">No songs available</div>;
+    }
     
     return (
-      <div 
-        key={`latest-${songTitle}-${index}`}
-        className="bg-white rounded-lg shadow p-3 mb-3 flex justify-between items-center fade-up"
-        style={{ animationDelay: `${index * 0.1}s` }}
-      >
-        <div>
-          <h4 className="font-medium text-goodtree">{songTitle || 'Untitled'}</h4>
-          <p className="text-sm text-gray-600">{artist || 'Unknown Artist'}</p>
-        </div>
-        {keyInfo && (
-          <span className="bg-goodtree-lighter text-goodtree text-xs px-2 py-1 rounded-full">
-            {keyInfo}
-          </span>
-        )}
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white rounded-lg overflow-hidden shadow-lg">
+          <thead className="bg-goodtree text-white">
+            <tr>
+              <th className="py-3 px-4 text-left">Date</th>
+              <th className="py-3 px-4 text-left">Song Lineup</th>
+              <th className="py-3 px-4 text-left">Description</th>
+              <th className="py-3 px-4 text-left">Youtube Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            {latestSongs.map((song, index) => {
+              if (!song || song.length < 2) return null;
+              
+              const [date, songTitle, description, youtubeLink] = song;
+              
+              return (
+                <tr key={`latest-${index}`} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  <td className="py-3 px-4">{index === 0 ? date : ''}</td>
+                  <td className="py-3 px-4 font-medium">{songTitle || '-'}</td>
+                  <td className="py-3 px-4">{description || '-'}</td>
+                  <td className="py-3 px-4">
+                    {youtubeLink ? (
+                      <a 
+                        href={youtubeLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-goodtree hover:underline flex items-center"
+                      >
+                        Watch/Listen <ExternalLink size={14} className="ml-1" />
+                      </a>
+                    ) : '-'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     );
   };
-
-  // Filter songs for the latest date
-  const latestSongs = lineupData.filter(row => row && row[0] === latestDate);
 
   // Render worker table rows
   const renderWorkerRows = (data) => {
@@ -186,6 +219,17 @@ const Index = () => {
       );
     });
   };
+
+  // Get team names from sheet data
+  const getTeamName = (data, defaultName) => {
+    if (data && data.length > 0 && data[0] && data[0][0]) {
+      return data[0][0];
+    }
+    return defaultName;
+  };
+
+  const musicTeamName = getTeamName(workersData1, "Music Team");
+  const productionTeamName = getTeamName(workersData2, "Production Team");
 
   return (
     <div className="min-h-screen bg-white text-gray-800">
@@ -297,31 +341,12 @@ const Index = () => {
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-8 fade-up">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-                {latestDate ? `Latest Lineup: ${latestDate}` : 'Latest Lineup'}
+                Latest Lineup{latestDate ? `: ${latestDate}` : ''}
               </h2>
               <div className="w-20 h-1 bg-goodtree mx-auto mt-2 mb-4"></div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-              {isLoading ? (
-                <>
-                  <div className="bg-white rounded-lg shadow p-3 animate-pulse">
-                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-                  </div>
-                  <div className="bg-white rounded-lg shadow p-3 animate-pulse">
-                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-                  </div>
-                  <div className="bg-white rounded-lg shadow p-3 animate-pulse">
-                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-                  </div>
-                </>
-              ) : latestSongs.length > 0 ? (
-                latestSongs.map((song, index) => renderLatestLineupCard(song, index))
-              ) : (
-                <div className="col-span-3 text-center text-gray-500">No songs available</div>
-              )}
+            <div className="fade-up" style={{ animationDelay: '0.2s' }}>
+              {renderLatestLineupTable()}
             </div>
           </div>
         </section>
@@ -400,7 +425,7 @@ const Index = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto fade-up" style={{ animationDelay: '0.2s' }}>
               <div>
-                <h3 className="text-xl font-semibold text-goodtree mb-4">Music Team</h3>
+                <h3 className="text-xl font-semibold text-goodtree mb-4">{musicTeamName}</h3>
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                   <table className="min-w-full">
                     <thead>
@@ -437,7 +462,7 @@ const Index = () => {
               </div>
               
               <div>
-                <h3 className="text-xl font-semibold text-goodtree mb-4">Production Team</h3>
+                <h3 className="text-xl font-semibold text-goodtree mb-4">{productionTeamName}</h3>
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                   <table className="min-w-full">
                     <thead>
