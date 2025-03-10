@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Menu, X, ChevronDown, ChevronRight, Music, Users, FileText, Home, ExternalLink } from "lucide-react";
 
@@ -140,9 +139,9 @@ const Index = () => {
     );
   };
 
-  // Render latest lineup table
+  // Render latest lineup table - UPDATED to show all rows with the latest date
   const renderLatestLineupTable = () => {
-    // Filter songs for the latest date
+    // Filter songs for the latest date - we want to show all of them
     const latestSongs = lineupData.filter(row => row && row[0] === latestDate);
     
     if (isLoading) {
