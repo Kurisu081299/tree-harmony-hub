@@ -6,6 +6,18 @@ const Index = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [isScrolled, setIsScrolled] = useState(false);
+  const [lineupData, setLineupData] = useState([]);
+  const [workersData1, setWorkersData1] = useState([]);
+  const [workersData2, setWorkersData2] = useState([]);
+  const [latestDate, setLatestDate] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Google Sheets configuration
+  const sheetId = "1Rf7EGqVDLHieTWQC4iqnSox1wEUZtLAqvXm6b5g4tMg";
+  const lineupSheetName = "Lineup Songs";
+  const workersSheetName = "Workers";
+  const apiKey = "AIzaSyA3G6VhZdf_0heYvIQr84u8HCerrrvsFUo";
+  const pdfSrc = "https://drive.google.com/file/d/1V671ZKsWTom_5BxeEk7TFIKQKW9_WvKA/preview";
 
   // Handle scroll events
   useEffect(() => {
@@ -30,24 +42,59 @@ const Index = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Load external scripts
+  // Fetch data from Google Sheets
   useEffect(() => {
-    const loadScripts = async () => {
-      // Create and append script tags
-      const scripts = [
-        '/js/sheetsData.js',
-        '/js/pdfConfig.js'
-      ];
-      
-      scripts.forEach(src => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.async = true;
-        document.body.appendChild(script);
-      });
+    const fetchSheetData = async () => {
+      setIsLoading(true);
+      const lineupUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${lineupSheetName}!B:E?key=${apiKey}`;
+      const workersUrl1 = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${workersSheetName}!B:D?key=${apiKey}`;
+      const workersUrl2 = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${workersSheetName}!F:H?key=${apiKey}`;
+
+      try {
+        const [lineupResponse, workersResponse1, workersResponse2] = await Promise.all([
+          fetch(lineupUrl),
+          fetch(workersUrl1),
+          fetch(workersUrl2)
+        ]);
+
+        if (!lineupResponse.ok || !workersResponse1.ok || !workersResponse2.ok) {
+          throw new Error("Failed to fetch data from Google Sheets");
+        }
+
+        const lineupData = await lineupResponse.json();
+        const workersData1 = await workersResponse1.json();
+        const workersData2 = await workersResponse2.json();
+
+        // Find latest date from lineup data
+        let latest = '';
+        if (lineupData.values && lineupData.values.length > 1) {
+          for (let i = 1; i < lineupData.values.length; i++) {
+            if (lineupData.values[i] && lineupData.values[i][0] && (!latest || lineupData.values[i][0] > latest)) {
+              latest = lineupData.values[i][0];
+            }
+          }
+        }
+
+        setLatestDate(latest);
+        setLineupData(lineupData.values || []);
+        setWorkersData1(workersData1.values || []);
+        setWorkersData2(workersData2.values || []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    
-    loadScripts();
+
+    fetchSheetData();
+  }, []);
+
+  // Update PDF viewer
+  useEffect(() => {
+    const pdfViewer = document.getElementById("pdfViewer");
+    if (pdfViewer instanceof HTMLIFrameElement) {
+      pdfViewer.src = pdfSrc;
+    }
   }, []);
 
   // Navigation items
@@ -65,6 +112,79 @@ const Index = () => {
       element.scrollIntoView({ behavior: 'smooth' });
       setIsMenuOpen(false);
     }
+  };
+
+  // Render lineup card
+  const renderLineupCard = (song, index) => {
+    if (!song || song.length < 3) return null;
+    
+    const [date, songTitle, artist, keyInfo] = song;
+    
+    return (
+      <div 
+        key={`${songTitle}-${index}`}
+        className="bg-white rounded-lg shadow-md p-4 mb-4 fade-up hover:shadow-lg transition-all duration-300"
+        style={{ animationDelay: `${index * 0.1}s` }}
+      >
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-xl font-semibold text-goodtree">{songTitle || 'Untitled'}</h3>
+            <p className="text-gray-600">{artist || 'Unknown Artist'}</p>
+            {keyInfo && <p className="text-sm text-gray-500 mt-1">Key: {keyInfo}</p>}
+          </div>
+          <span className="bg-goodtree-lighter text-goodtree text-sm px-3 py-1 rounded-full">
+            {date || 'No Date'}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // Render latest lineup card
+  const renderLatestLineupCard = (song, index) => {
+    if (!song || song.length < 3) return null;
+    
+    const [date, songTitle, artist, keyInfo] = song;
+    
+    return (
+      <div 
+        key={`latest-${songTitle}-${index}`}
+        className="bg-white rounded-lg shadow p-3 mb-3 flex justify-between items-center fade-up"
+        style={{ animationDelay: `${index * 0.1}s` }}
+      >
+        <div>
+          <h4 className="font-medium text-goodtree">{songTitle || 'Untitled'}</h4>
+          <p className="text-sm text-gray-600">{artist || 'Unknown Artist'}</p>
+        </div>
+        {keyInfo && (
+          <span className="bg-goodtree-lighter text-goodtree text-xs px-2 py-1 rounded-full">
+            {keyInfo}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  // Filter songs for the latest date
+  const latestSongs = lineupData.filter(row => row && row[0] === latestDate);
+
+  // Render worker table rows
+  const renderWorkerRows = (data) => {
+    if (!data || data.length < 2) return null;
+    
+    return data.slice(1).map((row, index) => {
+      if (!row || row.length < 2) return null;
+      
+      const [date, role, name] = row;
+      
+      return (
+        <tr key={`worker-${index}`} className={index % 2 === 0 ? 'bg-goodtree-lighter/50' : 'bg-white'}>
+          <td className="p-2">{date || '-'}</td>
+          <td className="p-2">{role || '-'}</td>
+          <td className="p-2 font-medium">{name || '-'}</td>
+        </tr>
+      );
+    });
   };
 
   return (
@@ -176,25 +296,32 @@ const Index = () => {
         <section className="py-12 bg-gray-50">
           <div className="container mx-auto px-4 md:px-6">
             <div className="text-center mb-8 fade-up">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900" id="latest-date">
-                Latest Lineup
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                {latestDate ? `Latest Lineup: ${latestDate}` : 'Latest Lineup'}
               </h2>
               <div className="w-20 h-1 bg-goodtree mx-auto mt-2 mb-4"></div>
             </div>
-            <div id="latest-lineup" className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-              {/* Content will be loaded dynamically */}
-              <div className="bg-white rounded-lg shadow p-3 animate-pulse">
-                <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-3 animate-pulse">
-                <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-3 animate-pulse">
-                <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              {isLoading ? (
+                <>
+                  <div className="bg-white rounded-lg shadow p-3 animate-pulse">
+                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-100 rounded w-1/2"></div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-3 animate-pulse">
+                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-100 rounded w-1/2"></div>
+                  </div>
+                  <div className="bg-white rounded-lg shadow p-3 animate-pulse">
+                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-100 rounded w-1/2"></div>
+                  </div>
+                </>
+              ) : latestSongs.length > 0 ? (
+                latestSongs.map((song, index) => renderLatestLineupCard(song, index))
+              ) : (
+                <div className="col-span-3 text-center text-gray-500">No songs available</div>
+              )}
             </div>
           </div>
         </section>
@@ -217,35 +344,42 @@ const Index = () => {
                 </div>
               </div>
               <div className="md:w-2/3 md:pl-8 fade-up" style={{ animationDelay: '0.2s' }}>
-                <div id="lineup-container" className="space-y-4">
-                  {/* Content will be loaded dynamically */}
-                  <div className="bg-white rounded-lg shadow-md p-4 mb-4 animate-pulse">
-                    <div className="flex justify-between">
-                      <div>
-                        <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                        <div className="h-4 bg-gray-100 rounded w-32"></div>
+                <div className="space-y-4">
+                  {isLoading ? (
+                    <>
+                      <div className="bg-white rounded-lg shadow-md p-4 mb-4 animate-pulse">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+                            <div className="h-4 bg-gray-100 rounded w-32"></div>
+                          </div>
+                          <div className="h-6 bg-gray-200 rounded w-20"></div>
+                        </div>
                       </div>
-                      <div className="h-6 bg-gray-200 rounded w-20"></div>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-lg shadow-md p-4 mb-4 animate-pulse">
-                    <div className="flex justify-between">
-                      <div>
-                        <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                        <div className="h-4 bg-gray-100 rounded w-32"></div>
+                      <div className="bg-white rounded-lg shadow-md p-4 mb-4 animate-pulse">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+                            <div className="h-4 bg-gray-100 rounded w-32"></div>
+                          </div>
+                          <div className="h-6 bg-gray-200 rounded w-20"></div>
+                        </div>
                       </div>
-                      <div className="h-6 bg-gray-200 rounded w-20"></div>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-lg shadow-md p-4 mb-4 animate-pulse">
-                    <div className="flex justify-between">
-                      <div>
-                        <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                        <div className="h-4 bg-gray-100 rounded w-32"></div>
+                      <div className="bg-white rounded-lg shadow-md p-4 mb-4 animate-pulse">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+                            <div className="h-4 bg-gray-100 rounded w-32"></div>
+                          </div>
+                          <div className="h-6 bg-gray-200 rounded w-20"></div>
+                        </div>
                       </div>
-                      <div className="h-6 bg-gray-200 rounded w-20"></div>
-                    </div>
-                  </div>
+                    </>
+                  ) : lineupData.length > 1 ? (
+                    lineupData.slice(1).map((song, index) => renderLineupCard(song, index))
+                  ) : (
+                    <div className="text-center text-gray-500 p-8">No songs available</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -268,7 +402,7 @@ const Index = () => {
               <div>
                 <h3 className="text-xl font-semibold text-goodtree mb-4">Music Team</h3>
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <table className="min-w-full" id="workers-table-1">
+                  <table className="min-w-full">
                     <thead>
                       <tr className="bg-goodtree-lighter">
                         <th className="p-2 text-left">Date</th>
@@ -277,16 +411,26 @@ const Index = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="animate-pulse">
-                        <td className="p-2"><div className="h-4 bg-gray-100 rounded w-20"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-100 rounded w-16"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-100 rounded w-24"></div></td>
-                      </tr>
-                      <tr className="bg-gray-50 animate-pulse">
-                        <td className="p-2"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                      </tr>
+                      {isLoading ? (
+                        <>
+                          <tr className="animate-pulse">
+                            <td className="p-2"><div className="h-4 bg-gray-100 rounded w-20"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-100 rounded w-16"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-100 rounded w-24"></div></td>
+                          </tr>
+                          <tr className="bg-gray-50 animate-pulse">
+                            <td className="p-2"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                          </tr>
+                        </>
+                      ) : workersData1.length > 1 ? (
+                        renderWorkerRows(workersData1)
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="p-4 text-center text-gray-500">No team data available</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -295,7 +439,7 @@ const Index = () => {
               <div>
                 <h3 className="text-xl font-semibold text-goodtree mb-4">Production Team</h3>
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <table className="min-w-full" id="workers-table-2">
+                  <table className="min-w-full">
                     <thead>
                       <tr className="bg-goodtree-lighter">
                         <th className="p-2 text-left">Date</th>
@@ -304,16 +448,26 @@ const Index = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="animate-pulse">
-                        <td className="p-2"><div className="h-4 bg-gray-100 rounded w-20"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-100 rounded w-16"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-100 rounded w-24"></div></td>
-                      </tr>
-                      <tr className="bg-gray-50 animate-pulse">
-                        <td className="p-2"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
-                        <td className="p-2"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                      </tr>
+                      {isLoading ? (
+                        <>
+                          <tr className="animate-pulse">
+                            <td className="p-2"><div className="h-4 bg-gray-100 rounded w-20"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-100 rounded w-16"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-100 rounded w-24"></div></td>
+                          </tr>
+                          <tr className="bg-gray-50 animate-pulse">
+                            <td className="p-2"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+                            <td className="p-2"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                          </tr>
+                        </>
+                      ) : workersData2.length > 1 ? (
+                        renderWorkerRows(workersData2)
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="p-4 text-center text-gray-500">No team data available</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
